@@ -1,0 +1,122 @@
+//rtl代码
+
+module beep
+
+#(parameter cnt_max=25'd24_999_999,
+parameter DO=18'd190839,
+parameter RE=18'd170067,
+parameter ME=18'd151514,
+parameter FA=18'd143265,
+parameter SO=18'd127550,
+parameter LA=18'd113635,
+parameter XI=18'd101213)
+
+(input wire sys_clk,
+input wire sys_rst_n,
+output reg beep_out);
+
+reg [24:0] cnt_500ms;
+reg cnt_flag;
+reg [2:0] music;
+reg [17:0] max;
+wire[16:0] half;
+reg [17:0] freq_data;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+cnt_500ms<=25'd0;
+else if(cnt_500ms==cnt_max)
+cnt_500ms<=25'd0;
+else 
+cnt_500ms<=cnt_500ms+25'd1;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+cnt_flag<=1'b0;
+else if(cnt_500ms==cnt_max-25'd1)
+cnt_flag<=1'b1;
+else 
+cnt_flag<=1'b0;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+music<=3'd0;
+else if((music==3'd6)&&(cnt_flag==1'b1))
+music<=3'd0;
+else if(cnt_flag==1'b1)
+music<=music+3'd1;
+else 
+music<=music;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+max<=DO;
+else case(music)
+3'd0:max<=DO;
+3'd1:max<=RE;
+3'd2:max<=ME;
+3'd3:max<=FA;
+3'd4:max<=SO;
+3'd5:max<=LA;
+3'd6:max<=XI;
+default max<=DO;
+endcase
+
+assign half=(max>>1'b1);
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+freq_data<=18'd0;
+else if ((freq_data==max)||(cnt_flag==1'b1))
+freq_data<=18'd0;
+else 
+freq_data<=freq_data+18'd1;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+beep_out<=1'b0;
+else if(freq_data<=half)
+beep_out<=1'b0;
+else if((freq_data>half)&&(freq_data<=max))
+beep_out<=1'b1;
+
+endmodule
+
+
+
+
+//testbench
+
+`timescale 1ns/1ns
+
+module tb_beep();
+
+reg sys_clk;
+reg sys_rst_n;
+wire beep_out;
+
+initial 
+begin 
+sys_clk=1'b1;
+sys_rst_n<=1'b0;
+#15
+sys_rst_n<=1'b1;
+end
+
+always #10 sys_clk=~sys_clk;
+
+beep
+#(.cnt_max(25'd80),
+.DO(18'd19),
+.RE(18'd17),
+.ME(18'd15),
+.FA(18'd14),
+.SO(18'd12),
+.LA(18'd11),
+.XI(18'd10))
+beep_inst
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.beep_out(beep_out));
+
+endmodule
