@@ -25,4 +25,4 @@ FPGA平台：Altera Cyclone IV
 联系方式：
  邮箱：wzy2112025@qq.com
  手机：15820358074
- GitHub：https://github.com/W123059/FPGA-Verilog-Projects
+ GitHub：https://github.com/W123059/FPGA_Verilog_Projects
