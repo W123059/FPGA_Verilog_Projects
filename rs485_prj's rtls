@@ -1,0 +1,148 @@
+module led_ctrl
+(input wire sys_clk,
+input wire sys_rst_n,
+input wire [3:0] led_out_w,
+input wire led_out_b,
+input wire [7:0] pi_data,
+input wire key_flag_w,
+input wire key_flag_b,
+output reg [3:0] led,
+output wire [7:0] po_data,
+output wire po_flag
+); 
+
+reg w_en;
+reg b_en;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+w_en<=1'b0;
+else if((w_en==1'b1)&&(key_flag_b==1'b1))
+w_en<=1'b0;
+else if(key_flag_w==1'b1)
+w_en<=~w_en;
+else 
+w_en<=w_en;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+b_en<=1'b0;
+else if((b_en==1'b1)&&(key_flag_w==1'b1))
+b_en<=1'b0;
+else if(key_flag_b==1'b1)
+b_en<=~b_en;
+else 
+b_en<=b_en;
+
+always @ (posedge sys_clk or negedge sys_rst_n)
+if(sys_rst_n==1'b0)
+led<=4'b1111;
+else if(pi_data[0]==1'b1)
+led<=led_out_w;
+else if(pi_data[1]==1'b1)
+led<={led_out_b,led_out_b,led_out_b,led_out_b};
+else
+led<=4'b1111;
+
+assign po_data={6'b000_000,b_en,w_en};
+
+assign po_flag=((key_flag_b)||(key_flag_w));
+
+endmodule
+
+
+
+module rs485
+(input wire sys_clk,
+input wire sys_rst_n,
+input wire [9:0] rx,
+input wire key_w,
+input wire key_b,
+output wire tx,
+output wire re,
+output wire [3:0] led
+);
+
+parameter key_cnt_max=20'd999_999;
+parameter water_led_cnt_max=25'd24_999_999;
+parameter uart_bps_max=14'd9600;
+parameter clk_freq_max=26'd50_000_000;
+parameter max_1us_max=5'd49;
+parameter max_1ms_max=10'd999;
+parameter max_1s_max=10'd999;
+
+wire key_flag_w_wire;
+wire key_flag_b_wire;
+wire [3:0] led_out_w_wire;
+wire led_out_b_wire;
+wire [7:0] pi_data_wire1;
+wire [7:0] po_data_wire;
+wire po_flag_wire;
+
+key_filter
+#(.max(key_cnt_max))
+key_filter_inst1
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.key_in(key_w),
+.key_out(key_flag_w_wire));
+
+key_filter
+#(.max(key_cnt_max))
+key_filter_inst2
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.key_in(key_b),
+.key_out(key_flag_b_wire));
+
+water_led 
+#(.max(water_led_cnt_max))
+water_led_inst
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.led_out(led_out_w_wire));
+
+breath_led
+#(.max_1us(max_1us_max),
+.max_1ms(max_1ms_max),
+.max_1s(max_1s_max))
+breath_led_inst
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.led_out(led_out_b_wire));
+
+uart_rx
+#(.uart_bps(uart_bps_max),
+.clk_freq(clk_freq_max))
+uart_rx_inst
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.rx(rx),
+.po_data(pi_data_wire1),
+.po_flag());
+
+led_ctrl led_ctrl_inst
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.led_out_w(led_out_w_wire),
+.led_out_b(led_out_b_wire),
+.pi_data(pi_data_wire1),
+.key_flag_w(key_flag_w_wire),
+.key_flag_b(key_flag_b_wire),
+.led(led),
+.po_data(po_data_wire),
+.po_flag(po_flag_wire)
+); 
+
+uart_tx
+#(.uart_bps(uart_bps_max),
+.clk_freq(clk_freq_max))
+uart_tx_inst                  
+(.sys_clk(sys_clk),
+.sys_rst_n(sys_rst_n),
+.pi_data(po_data_wire),
+.pi_flag(po_flag_wire),
+.tx(tx),
+.work_en(re));
+
+endmodule
